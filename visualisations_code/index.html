@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Global Analytics Platform</title>
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel-bg: rgba(15, 23, 42, 0.98);
+        --border: 1px solid rgba(255, 255, 255, 0.15);
+        --accent: #38bdf8;
+        --text-main: #f1f5f9;
+        --text-sub: #94a3b8;
+      }
+
+      body {
+        margin: 0;
+        background-color: var(--bg);
+        font-family: "Inter", sans-serif;
+        overflow: hidden;
+      }
+
+      /* --- MAP --- */
+      #map {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 1;
+        background: #020617;
+      }
+
+      /* --- INSTRUCTION BAR --- */
+      .instruction-bar {
+        position: absolute;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 100;
+        background: var(--panel-bg);
+        border: var(--border);
+        border-radius: 50px;
+        padding: 12px 30px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      }
+      .inst-icon {
+        width: 24px;
+        height: 24px;
+        background: var(--accent);
+        color: #000;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-family: "JetBrains Mono";
+      }
+      .inst-text {
+        color: var(--text-main);
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      /* --- LEFT DOCK --- */
+      .control-dock {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        width: 320px;
+        z-index: 10;
+        background: var(--panel-bg);
+        border: var(--border);
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+
+      h1 {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-main);
+        margin: 0 0 15px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-transform: uppercase;
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        background: #10b981;
+        border-radius: 50%;
+      }
+
+      select {
+        width: 100%;
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: var(--text-main);
+        border-radius: 6px;
+        font-size: 13px;
+        outline: none;
+        cursor: pointer;
+        margin-bottom: 10px;
+      }
+      select:hover {
+        border-color: var(--accent);
+      }
+
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: var(--border);
+      }
+      .toggle-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: var(--text-sub);
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: 0.2s;
+        text-transform: uppercase;
+      }
+      .toggle-btn.active {
+        background: var(--accent);
+        color: #000;
+        border-color: var(--accent);
+        font-weight: bold;
+      }
+
+      .legend-container {
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--text-sub);
+      }
+
+      /* Gradient Legend Bar */
+      .grad-bar {
+        width: 100%;
+        height: 8px;
+        border-radius: 4px;
+        margin: 8px 0;
+        background: linear-gradient(
+          90deg,
+          #ef4444 0%,
+          #64748b 50%,
+          #3b82f6 100%
+        );
+      }
+
+      /* --- RIGHT PANEL --- */
+      .info-panel {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 450px;
+        z-index: 20;
+        background: var(--panel-bg);
+        border-left: var(--border);
+        box-shadow: -5px 0 20px rgba(0, 0, 0, 0.5);
+        transform: translateX(100%);
+        transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        display: flex;
+        flex-direction: column;
+      }
+      .info-panel.active {
+        transform: translateX(0);
+      }
+
+      .panel-header {
+        padding: 25px;
+        border-bottom: var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .panel-title {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text-main);
+        margin: 0;
+      }
+      .close-btn {
+        background: none;
+        border: none;
+        color: var(--text-sub);
+        font-size: 24px;
+        cursor: pointer;
+      }
+      .close-btn:hover {
+        color: #fff;
+      }
+      .panel-body {
+        padding: 25px;
+        overflow-y: auto;
+        flex-grow: 1;
+      }
+
+      /* Tags */
+      .tag-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+      .country-tag {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: var(--text-main);
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-family: "JetBrains Mono";
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .remove-tag {
+        cursor: pointer;
+        font-weight: bold;
+        opacity: 0.5;
+        margin-left: 5px;
+      }
+      .remove-tag:hover {
+        opacity: 1;
+        color: #ef4444;
+      }
+
+      .metric-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: var(--border);
+        border-radius: 6px;
+        padding: 15px;
+        margin-bottom: 12px;
+      }
+      .m-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: var(--text-sub);
+        margin-bottom: 5px;
+      }
+      .m-value {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 24px;
+        color: var(--text-main);
+        font-weight: 500;
+      }
+
+      .chart-container {
+        position: relative;
+        height: 350px;
+        width: 100%;
+        margin-top: 10px;
+      }
+      .striped-country {
+        fill: url(#diagonal-stripe) !important;
+        fill-opacity: 0.5 !important;
+        stroke: #334155;
+        stroke-width: 0.5px;
+      }
+
+      /* --- NEW SPECTRUM BAR (The Rectangle) --- */
+      .spectrum-container {
+        margin-top: 20px;
+        position: relative;
+        padding-bottom: 20px;
+      }
+      .spectrum-bar {
+        width: 100%;
+        height: 16px;
+        border-radius: 4px;
+        /* The Red -> Gray -> Blue Gradient */
+        background: linear-gradient(
+          90deg,
+          #ef4444 0%,
+          #64748b 50%,
+          #3b82f6 100%
+        );
+        box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+        position: relative;
+      }
+      .spectrum-marker {
+        position: absolute;
+        top: -4px;
+        width: 4px;
+        height: 24px;
+        background: #fff;
+        border: 1px solid #000;
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        transform: translateX(-50%);
+        transition: left 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .spectrum-labels {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        color: var(--text-sub);
+        margin-top: 8px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+    </style>
+  </head>
+  <body>
+    <svg style="position: absolute; width: 0; height: 0">
+      <defs>
+        <pattern
+          id="diagonal-stripe"
+          width="8"
+          height="8"
+          patternUnits="userSpaceOnUse"
+          patternTransform="rotate(45)"
+        >
+          <rect
+            width="4"
+            height="8"
+            transform="translate(0,0)"
+            fill="transparent"
+          ></rect>
+          <rect
+            width="4"
+            height="8"
+            transform="translate(4,0)"
+            fill="rgba(255,255,255,0.05)"
+          ></rect>
+        </pattern>
+      </defs>
+    </svg>
+
+    <div id="map"></div>
+
+    <div class="instruction-bar">
+      <div class="inst-icon" id="instIcon">1</div>
+      <div class="inst-text" id="instText">
+        Select "Trade Balance" to view the spectrum.
+      </div>
+    </div>
+
+    <div class="control-dock">
+      <h1>
+        <div class="status-dot"></div>
+        Analytics Console
+      </h1>
+
+      <div class="toggle-row">
+        <span style="font-size: 13px; color: #fff">Comparison Mode</span>
+        <button id="compareBtn" class="toggle-btn" onclick="toggleCompare()">
+          OFF
+        </button>
+      </div>
+
+      <select id="viewMode" onchange="updateMapMode()">
+        <option value="none">-- Select Layer --</option>
+        <option value="heat">Arable Land Density</option>
+        <option value="trade">Trade Balance (Petroleum)</option>
+        <option value="spider">Energy Matrix (Radar)</option>
+      </select>
+
+      <div id="legend" class="legend-container" style="display: none"></div>
+    </div>
+
+    <div id="info-panel" class="info-panel">
+      <div class="panel-header">
+        <h2 id="panel-title" class="panel-title">Data View</h2>
+        <button class="close-btn" onclick="closePanel()">×</button>
+      </div>
+      <div id="panel-content" class="panel-body"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="map_data.js"></script>
+
+    <script>
+      // --- 1. SETUP ---
+      const map = L.map("map", {
+        zoomControl: false,
+        attributionControl: false,
+        minZoom: 2,
+        maxBounds: [
+          [-90, -180],
+          [90, 180],
+        ],
+      }).setView([20, 0], 2.5);
+      L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        { subdomains: "abcd", maxZoom: 19 }
+      ).addTo(map);
+      L.control.zoom({ position: "bottomleft" }).addTo(map);
+
+      let geojsonLayer;
+      let selectedCountries = [];
+      let isCompareMode = false;
+      let chartInstance = null;
+      const compareColors = ["#06b6d4", "#d946ef", "#84cc16"];
+
+      // --- 2. DATA PREP ---
+      let maxSurplus = 0;
+      let maxDeficit = 0;
+      for (let c in mapData.countries) {
+        let d = mapData.countries[c].energy;
+        let net = (d["Petroleum Exports"] || 0) - (d["Petroleum Imports"] || 0);
+        if (net > maxSurplus) maxSurplus = net;
+        if (net < maxDeficit) maxDeficit = net;
+      }
+
+      // --- 3. INSTRUCTION LOGIC ---
+      function setInst(step, text) {
+        document.getElementById("instIcon").innerText = step;
+        document.getElementById("instText").innerText = text;
+      }
+
+      // --- 4. COLOR SCALES ---
+      function getTradeColor(net) {
+        if (Math.abs(net) < 1000) return "#64748b"; // Gray Balance
+        if (net > 0) {
+          // Surplus (Blue)
+          const ratio = net / maxSurplus;
+          const l = 60 - ratio * 30;
+          return `hsl(217, 91%, ${l}%)`;
+        } else {
+          // Deficit (Red)
+          const ratio = Math.abs(net) / Math.abs(maxDeficit);
+          const l = 60 - ratio * 30;
+          return `hsl(0, 84%, ${l}%)`;
+        }
+      }
+
+      function styleBase(feature) {
+        return {
+          fillColor: "transparent",
+          weight: 1,
+          color: "rgba(255,255,255,0.1)",
+          fillOpacity: 0,
+        };
+      }
+
+      function styleHeat(feature) {
+        const d = mapData.countries[feature.properties.name];
+        if (!d || d.arable === 0)
+          return {
+            className: "striped-country",
+            weight: 0.5,
+            color: "#475569",
+          };
+        const v = d.arable;
+        const c =
+          v > 50
+            ? "#22d3ee"
+            : v > 35
+            ? "#38bdf8"
+            : v > 20
+            ? "#60a5fa"
+            : v > 10
+            ? "#818cf8"
+            : "#64748b";
+        return {
+          fillColor: c,
+          weight: 0.5,
+          color: "rgba(255,255,255,0.2)",
+          fillOpacity: 0.6,
+        };
+      }
+
+      function styleTrade(feature) {
+        const d = mapData.countries[feature.properties.name];
+        if (!d)
+          return {
+            className: "striped-country",
+            weight: 0.5,
+            color: "#475569",
+          };
+        const net =
+          (d.energy["Petroleum Exports"] || 0) -
+          (d.energy["Petroleum Imports"] || 0);
+
+        if (
+          (d.energy["Petroleum Exports"] || 0) === 0 &&
+          (d.energy["Petroleum Imports"] || 0) === 0
+        )
+          return {
+            className: "striped-country",
+            weight: 0.5,
+            color: "#475569",
+          };
+
+        return {
+          fillColor: getTradeColor(net),
+          weight: 0.5,
+          color: "rgba(255,255,255,0.2)",
+          fillOpacity: 0.7,
+        };
+      }
+
+      // --- 5. INTERACTION ---
+      function highlightFeature(e) {
+        const l = e.target;
+        if (selectedCountries.includes(l.feature.properties.name)) return;
+        l.setStyle({ weight: 2, color: "#fff", fillOpacity: 0.9 });
+        if (!L.Browser.ie) l.bringToFront();
+      }
+
+      function resetHighlight(e) {
+        const l = e.target;
+        if (selectedCountries.includes(l.feature.properties.name)) return;
+        const m = document.getElementById("viewMode").value;
+        if (m === "heat") applyStyle(l, styleHeat(l.feature));
+        else if (m === "trade") applyStyle(l, styleTrade(l.feature));
+        else applyStyle(l, styleBase(l.feature));
+      }
+
+      function applyStyle(l, s) {
+        if (s.className) {
+          l.setStyle({
+            fillColor: null,
+            fillOpacity: 0,
+            weight: 0.5,
+            color: "#475569",
+          });
+          if (l._path) L.DomUtil.addClass(l._path, "striped-country");
+        } else {
+          if (l._path) L.DomUtil.removeClass(l._path, "striped-country");
+          l.setStyle(s);
+        }
+      }
+
+      function onCountryClick(feature, layer) {
+        const name = feature.properties.name;
+        const data = mapData.countries[name];
+        if (!data) return;
+
+        if (isCompareMode) {
+          if (selectedCountries.includes(name)) {
+            selectedCountries = selectedCountries.filter((c) => c !== name);
+            layer.setStyle({ weight: 0.5, color: "rgba(255,255,255,0.2)" });
+            resetHighlight({ target: layer });
+          } else {
+            if (selectedCountries.length >= 3) {
+              alert("Max 3 countries.");
+              return;
+            }
+            selectedCountries.push(name);
+            layer.setStyle({
+              weight: 3,
+              color: compareColors[selectedCountries.length - 1],
+              fillOpacity: 1,
+            });
+          }
+          updatePanel();
+          if (selectedCountries.length < 3)
+            setInst(
+              "3",
+              `Selected ${selectedCountries.length}/3. Click another.`
+            );
+          else setInst("✓", "Maximum reached. Analyzing data.");
+        } else {
+          geojsonLayer.eachLayer((l) => {
+            if (selectedCountries.includes(l.feature.properties.name))
+              resetHighlight({ target: l });
+          });
+          selectedCountries = [name];
+          layer.setStyle({ weight: 3, color: "#38bdf8", fillOpacity: 1 });
+          map.flyTo(layer.getBounds().getCenter(), 4, { duration: 0.8 });
+          updatePanel();
+          setInst("✓", `Viewing ${name}. Switch to Compare Mode to add more.`);
+        }
+      }
+
+      // --- 6. PANEL & LOGIC ---
+      function toggleCompare() {
+        isCompareMode = !isCompareMode;
+        const btn = document.getElementById("compareBtn");
+        btn.innerText = isCompareMode ? "ON" : "OFF";
+        btn.classList.toggle("active");
+        selectedCountries = [];
+        geojsonLayer.resetStyle();
+        updateMapMode();
+        closePanel();
+        setInst(
+          "2",
+          isCompareMode
+            ? "Compare Mode Active. Select a country."
+            : "Select a country to view."
+        );
+      }
+
+      function closePanel() {
+        document.getElementById("info-panel").classList.remove("active");
+        if (!isCompareMode) {
+          selectedCountries = [];
+          geojsonLayer.resetStyle();
+          updateMapMode();
+        }
+      }
+
+      function removeCountry(name) {
+        selectedCountries = selectedCountries.filter((c) => c !== name);
+        geojsonLayer.eachLayer((l) => {
+          if (l.feature.properties.name === name) resetHighlight({ target: l });
+        });
+        if (selectedCountries.length === 0) closePanel();
+        else updatePanel();
+      }
+
+      function updatePanel() {
+        if (selectedCountries.length === 0) return;
+        document.getElementById("info-panel").classList.add("active");
+        document.getElementById("panel-title").innerText = isCompareMode
+          ? "Comparison View"
+          : selectedCountries[0];
+
+        let html = '<div class="tag-container">';
+        selectedCountries.forEach((c, i) => {
+          const color = isCompareMode ? compareColors[i] : "#38bdf8";
+          html += `<div class="country-tag" style="border-color:${color}; color:${color}"><span style="background:${color};width:8px;height:8px;border-radius:50%"></span>${c} <span class="remove-tag" onclick="removeCountry('${c}')">×</span></div>`;
+        });
+        html += "</div>";
+
+        const canvasId = "chartCanvas";
+        html += `<div class="chart-container"><canvas id="${canvasId}"></canvas></div>`;
+        const mode = document.getElementById("viewMode").value;
+
+        // --- TRADE SPECTRUM LOGIC ---
+        if (mode === "trade") {
+          // If single view, show detailed spectrum
+          if (selectedCountries.length === 1) {
+            const d = mapData.countries[selectedCountries[0]];
+            const net =
+              (d.energy["Petroleum Exports"] || 0) -
+              (d.energy["Petroleum Imports"] || 0);
+
+            // Normalize position: 0% = Max Deficit, 50% = Balance, 100% = Max Surplus
+            let pos = 50;
+            if (net > 0) pos = 50 + (net / maxSurplus) * 50;
+            else pos = 50 - (Math.abs(net) / Math.abs(maxDeficit)) * 50;
+
+            // Clamp
+            if (pos > 100) pos = 100;
+            if (pos < 0) pos = 0;
+
+            let labelColor = net >= 0 ? "#3b82f6" : "#ef4444";
+            let labelText = net >= 0 ? "Surplus" : "Deficit";
+
+            html += `
+                        <div class="metric-card">
+                            <div class="m-label">Net Trade Balance</div>
+                            <div class="m-value" style="color:${labelColor}">${
+              net > 0 ? "+" : ""
+            }${net.toLocaleString()}</div>
+                            
+                            <div class="spectrum-container">
+                                <div class="spectrum-bar">
+                                    <div class="spectrum-marker" style="left:${pos}%"></div>
+                                </div>
+                                <div class="spectrum-labels">
+                                    <span>Import</span>
+                                    <span>Balance</span>
+                                    <span>Export</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+          }
+        } else if (mode === "heat" && selectedCountries.length === 1) {
+          const d = mapData.countries[selectedCountries[0]];
+          html += `<div class="metric-card" style="margin-top:10px"><div class="m-label">Arable Land</div><div class="m-value">${d.arable}%</div></div>`;
+        }
+
+        document.getElementById("panel-content").innerHTML = html;
+        setTimeout(() => drawCompareChart(canvasId, mode), 50);
+      }
+
+      function drawCompareChart(id, mode) {
+        const ctx = document.getElementById(id);
+        if (!ctx) return;
+        if (chartInstance) chartInstance.destroy();
+
+        let labels = [],
+          datasets = [],
+          type = "bar",
+          options = {};
+        const colors = isCompareMode ? compareColors : ["#38bdf8"];
+
+        if (mode === "heat") {
+          labels = selectedCountries;
+          const data = selectedCountries.map(
+            (c) => mapData.countries[c].arable
+          );
+          datasets.push({
+            label: "Arable %",
+            data: data,
+            backgroundColor: colors.slice(0, selectedCountries.length),
+          });
+          options = {
+            indexAxis: "y",
+            scales: { x: { max: 100, grid: { color: "#333" } } },
+            plugins: { legend: { display: false } },
+          };
+        } else if (mode === "trade") {
+          labels = selectedCountries;
+          const exp = selectedCountries.map(
+            (c) => mapData.countries[c].energy["Petroleum Exports"] || 0
+          );
+          const imp = selectedCountries.map(
+            (c) => mapData.countries[c].energy["Petroleum Imports"] || 0
+          );
+          datasets.push({
+            label: "Exports",
+            data: exp,
+            backgroundColor: "#3b82f6",
+          });
+          datasets.push({
+            label: "Imports",
+            data: imp,
+            backgroundColor: "#ef4444",
+          });
+          options = {
+            scales: { x: { display: false }, y: { grid: { color: "#333" } } },
+            plugins: { legend: { labels: { color: "#fff" } } },
+          };
+        } else if (mode === "spider") {
+          type = "radar";
+          labels = Object.keys(mapData.countries[selectedCountries[0]].energy);
+          selectedCountries.forEach((c, i) => {
+            const d = mapData.countries[c].energy;
+            const vals = labels.map((k) => {
+              const m = mapData.max_values[k];
+              return m > 0 ? (d[k] / m) * 100 : 0;
+            });
+            datasets.push({
+              label: c,
+              data: vals,
+              backgroundColor: colors[i] + "1A",
+              borderColor: colors[i],
+              borderWidth: 3,
+              pointBackgroundColor: colors[i],
+            });
+          });
+          options = {
+            scales: {
+              r: {
+                grid: { color: "#333" },
+                ticks: { display: false },
+                pointLabels: { color: "#94a3b8", font: { size: 10 } },
+              },
+            },
+            plugins: { legend: { labels: { color: "#fff" } } },
+          };
+        }
+
+        chartInstance = new Chart(ctx, {
+          type: type,
+          data: { labels, datasets },
+          options: { responsive: true, maintainAspectRatio: false, ...options },
+        });
+      }
+
+      // --- 7. LOAD ---
+      fetch(
+        "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          geojsonLayer = L.geoJSON(data, {
+            style: styleBase,
+            onEachFeature: (f, l) =>
+              l.on({
+                mouseover: highlightFeature,
+                mouseout: resetHighlight,
+                click: (e) => onCountryClick(f, l),
+              }),
+          }).addTo(map);
+        });
+
+      function updateMapMode() {
+        const mode = document.getElementById("viewMode").value;
+        const leg = document.getElementById("legend");
+        geojsonLayer.eachLayer((l) => {
+          if (l._path) L.DomUtil.removeClass(l._path, "striped-country");
+        });
+
+        if (mode === "none") {
+          geojsonLayer.eachLayer((l) => l.setStyle(styleBase(l.feature)));
+          leg.style.display = "none";
+          setInst("1", "Please select a Data Layer.");
+        } else {
+          if (mode === "heat") {
+            geojsonLayer.eachLayer((l) => {
+              const s = styleHeat(l.feature);
+              l.setStyle(s);
+              if (s.className && l._path)
+                L.DomUtil.addClass(l._path, "striped-country");
+            });
+            leg.innerHTML = `<div class="legend-row"><div class="color-box" style="background:#22d3ee"></div>High Density</div><div class="legend-row"><div class="stripe-box"></div>No Data</div>`;
+          } else if (mode === "trade") {
+            geojsonLayer.eachLayer((l) => {
+              const s = styleTrade(l.feature);
+              l.setStyle(s);
+              if (s.className && l._path)
+                L.DomUtil.addClass(l._path, "striped-country");
+            });
+            // GRADIENT LEGEND
+            leg.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; font-size:10px; color:#aaa; margin-bottom:2px;">
+                            <span>Import</span><span>Balance</span><span>Export</span>
+                        </div>
+                        <div class="grad-bar"></div>
+                        <div class="legend-row" style="margin-top:8px"><div class="stripe-box"></div>No Data</div>
+                    `;
+          } else {
+            geojsonLayer.eachLayer((l) => l.setStyle(styleBase(l.feature)));
+            leg.innerHTML = `<div class="legend-row" style="color:#38bdf8">Select regions to compare</div>`;
+          }
+          leg.style.display = "block";
+          setInst("2", "Layer active. Select a country to view details.");
+        }
+        if (selectedCountries.length > 0) updatePanel();
+      }
+    </script>
+  </body>
+</html>
