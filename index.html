@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Global Structural & Economic Dashboard</title>
+
+    <!-- Leaflet + Chart.js -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Your styles -->
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <!-- Pattern for "no data" stripes -->
+    <svg style="position: absolute; width: 0; height: 0">
+      <defs>
+        <pattern
+          id="diagonal-stripe"
+          width="8"
+          height="8"
+          patternUnits="userSpaceOnUse"
+          patternTransform="rotate(45)"
+        >
+          <rect
+            width="4"
+            height="8"
+            transform="translate(0,0)"
+            fill="transparent"
+          ></rect>
+          <rect
+            width="4"
+            height="8"
+            transform="translate(4,0)"
+            fill="rgba(255,255,255,0.08)"
+          ></rect>
+        </pattern>
+      </defs>
+    </svg>
+
+    <div id="app">
+      <header class="app-header">
+        <div class="header-title-block">
+          <div class="header-title">
+            <span class="header-title-dot"></span>
+            GLOBAL STRUCTURAL &amp; ECONOMIC DASHBOARD
+          </div>
+          <div class="header-subtitle">
+            World map heatmaps + scatter + dual radar comparison for 1–2
+            countries.
+          </div>
+        </div>
+        <div class="header-badge">VIEW: STRUCTURE • LABOUR • TRADE</div>
+      </header>
+
+      <div class="layout-main">
+        <!-- LEFT SIDEBAR -->
+        <aside class="sidebar-left">
+          <div>
+            <div class="panel-title-sm">Map layer</div>
+            <div class="sidebar-section">
+              <label style="font-size: 11px; color: var(--text-sub)">
+                Choose which attribute is encoded by color on the world map.
+              </label>
+              <select id="viewMode">
+                <option value="none">No color (outline only)</option>
+                <option value="heat_youth">Youth unemployment rate (%)</option>
+                <option value="heat_agri">Agricultural land (% of area)</option>
+                <option value="heat_arable">
+                  Arable land (% of agricultural land)
+                </option>
+              </select>
+
+              <div class="legend-container" id="legend"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="panel-title-sm">Selection mode</div>
+            <div class="sidebar-section">
+              <div class="toggle-row">
+                <span>Compare countries</span>
+                <button id="compareBtn" class="toggle-btn">OFF</button>
+              </div>
+              <div class="sidebar-note">
+                Click countries on the map. Comparison mode supports up to
+                <strong>two</strong> countries for side-by-side radar profiles.
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="panel-title-sm">How to read this view</div>
+            <div class="sidebar-section">
+              <div class="sidebar-note">
+                • The <strong>map</strong> shows global distribution.<br />
+                • The <strong>scatter</strong> shows correlations across all
+                countries.<br />
+                • The <strong>radars</strong> contrast up to two selected
+                countries on structural and economic axes.
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- CENTER COLUMN -->
+        <main class="center-main">
+          <section class="map-wrapper">
+            <div id="map"></div>
+            <div class="map-caption">
+              World basemap • Use pan/zoom, then click countries to inspect.
+            </div>
+          </section>
+
+          <!-- SCATTER CARD -->
+          <section class="viz-card">
+            <div class="viz-card-header">
+              <div class="viz-card-title">Scatter: global relationship</div>
+              <div class="viz-card-subtitle">
+                Position encodes value • each point is a country.
+              </div>
+            </div>
+
+            <!-- Point-size slider -->
+            <div style="margin-bottom: 6px">
+              <label
+                style="
+                  font-size: 11px;
+                  color: var(--text-sub);
+                  letter-spacing: 0.1em;
+                  text-transform: uppercase;
+                "
+              >
+                Scatter point size
+              </label>
+              <input
+                id="scatterSizeSlider"
+                type="range"
+                min="2"
+                max="12"
+                value="4"
+                step="1"
+                style="width: 100%; margin-top: 2px"
+              />
+            </div>
+
+            <div class="viz-controls-row">
+              <div style="flex: 1">
+                <div style="font-size: 11px; color: var(--text-sub)">
+                  X axis attribute
+                </div>
+                <select id="scatterX" class="select-input"></select>
+              </div>
+              <div style="flex: 1">
+                <div style="font-size: 11px; color: var(--text-sub)">
+                  Y axis attribute
+                </div>
+                <select id="scatterY" class="select-input"></select>
+              </div>
+            </div>
+
+            <div class="viz-body">
+              <canvas id="scatterCanvas" class="chart-fixed-wide"></canvas>
+              <div
+                id="scatterInfo"
+                style="font-size: 11px; color: var(--text-sub); flex-shrink: 0"
+              ></div>
+              <div class="scatter-table-wrapper">
+                <table class="scatter-table">
+                  <thead>
+                    <tr>
+                      <th>Country</th>
+                      <th id="scatterXLabelTh">X</th>
+                      <th id="scatterYLabelTh">Y</th>
+                    </tr>
+                  </thead>
+                  <tbody id="scatterTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- RADAR CARD -->
+          <section class="viz-card">
+            <div class="viz-card-header">
+              <div class="viz-card-title">Radars: country profiles</div>
+              <div class="viz-card-subtitle">
+                Up to two selected countries • shape encodes profile.
+              </div>
+              <div style="font-size: 11px; color: var(--text-sub)">
+                Select 1–2 countries on the map. Left radar shows structural /
+                land characteristics, right radar shows economic / trade
+                metrics.
+              </div>
+            </div>
+            <div class="viz-body">
+              <div class="radar-grid">
+                <div class="radar-cell">
+                  <div class="radar-label">Structural &amp; land profile</div>
+                  <canvas id="radarA" class="chart-fixed"></canvas>
+                </div>
+                <div class="radar-cell">
+                  <div class="radar-label">Economic &amp; trade profile</div>
+                  <canvas id="radarB" class="chart-fixed"></canvas>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <!-- RIGHT SIDEBAR: INSPECTOR -->
+        <aside class="sidebar-right">
+          <div class="panel-title-sm">Selected countries</div>
+          <div id="selectionBox" class="country-tag-box"></div>
+
+          <div class="panel-title-sm">Key metrics</div>
+          <div id="metricsBox"></div>
+
+          <div class="inspector-note">
+            The inspector always shows metrics for the
+            <strong>first</strong> selected country. Use comparison mode and
+            radars to contrast it with a second country.
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Your data -->
+    <script src="map_data.js"></script>
+
+    <!-- Your dashboard logic -->
+    <script src="dashboard.js"></script>
+  </body>
+</html>
